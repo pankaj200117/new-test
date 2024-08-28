@@ -1,0 +1,59 @@
+name: CICD 
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  run-frontend-on-ec2:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          ref: main
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: SSH to instance using key
+        env:
+          HOSTNAME: ${{ secrets.SSH_HOST }}
+          USER_NAME: ${{ secrets.SSH_USER_NAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.pankaj_TOKEN }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh -o StrictHostKeyChecking=no ${USER_NAME}@${HOSTNAME} '
+            cd /home/ubuntu/frontend &&
+            echo "Deployment started" >> test.txt
+            if [ ! -d "frontend" ]; then
+              echo "Cloning the repository..."
+              git clone -b main git@github.com:pankaj200117/new-test.git
+            fi
+            cd frontend
+            #cp -f .env /root/env/env-react-dev
+            git stash && git checkout dev-react &&
+            git pull origin dev-react &&
+            #cp -f /root/env/env-react-dev .env
+            echo "Installing Dependencies"
+            npm install &&
+            npm install -g serve &&
+            npm install -g pm2 &&
+            npm run build &&
+            #pm2 stop dev-react-start || true &&
+            pm2 start npm --name "dev-react-start" -- start &&
+            pm2 restart dev-react-start &&
+            pm2 save
+          '
