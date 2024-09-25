@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         NODE_ENV = 'production'
-        DEPLOY_USER = 'ubuntu'
-        DEPLOY_HOST = '18.220.0.151'
         DEPLOY_PATH = '/home/ubuntu/new-test'
     }
 
@@ -12,7 +10,8 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 script {
-                    git url: 'https://github.com/pankaj200117/new-test.git', credentialsId: 'github_token'
+                    // Specify the branch to checkout
+                    git url: 'https://github.com/pankaj200117/new-test.git', credentialsId: 'github_token', branch: 'main'
                 }
             }
         }
@@ -33,36 +32,19 @@ pipeline {
             }
         }
 
-        stage('Debug SSH Connection') {
-            steps {
-                script {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh_key', keyFileVariable: 'SSH_KEY')]) {
-                        sh """
-                            ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${DEPLOY_USER}@${DEPLOY_HOST} 'whoami; ls -la; pwd'
-                        """
-                    }
-                }
-            }
-        }
-
         stage('Deploy to Server') {
             steps {
                 script {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh_key', keyFileVariable: 'SSH_KEY')]) {
-                        sh 'chmod 600 $SSH_KEY'
+                    // Create the deployment directory if it doesn't exist
+                    sh "mkdir -p ${DEPLOY_PATH}"
 
-                        sh """
-                            ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${DEPLOY_USER}@${DEPLOY_HOST} 'mkdir -p ${DEPLOY_PATH}'
-                        """
+                    // Use rsync to sync build files to the deployment path
+                    sh "rsync -avz --delete ./build/ ${DEPLOY_PATH}/"
 
-                        sh """
-                            rsync -avz --delete ./build/ ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/
-                        """
-
-                        sh """
-                            ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_PATH} && npm ci && pm2 restart all'
-                        """
-                    }
+                    // Install dependencies and restart the application using pm2
+                    sh """
+                        cd ${DEPLOY_PATH} && npm ci && pm2 restart all
+                    """
                 }
             }
         }
