@@ -9,6 +9,14 @@ pipeline {
     }
 
     stages {
+        stage('Checkout Code') {
+            steps {
+                script {
+                    git url: 'https://github.com/pankaj200117/new-test.git', credentialsId: 'github_token'
+                }
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
                 script {
