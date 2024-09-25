@@ -20,7 +20,7 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    sh 'npm install'
+                    sh 'npm ci' // Using npm ci for production
                 }
             }
         }
@@ -49,22 +49,18 @@ pipeline {
             steps {
                 script {
                     withCredentials([sshUserPrivateKey(credentialsId: 'ssh_key', keyFileVariable: 'SSH_KEY')]) {
-                        // Set permissions for the private key
                         sh 'chmod 600 $SSH_KEY'
 
-                        // Create directory on the server
                         sh """
                             ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${DEPLOY_USER}@${DEPLOY_HOST} 'mkdir -p ${DEPLOY_PATH}'
                         """
 
-                        // Copy files to the server
                         sh """
                             rsync -avz --delete ./build/ ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/
                         """
 
-                        // Restart the application on the server
                         sh """
-                            ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_PATH} && npm install && pm2 restart all'
+                            ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_PATH} && npm ci && pm2 restart all'
                         """
                     }
                 }
